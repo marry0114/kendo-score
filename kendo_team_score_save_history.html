@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>剣道 団体戦スコア</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;margin:0;background:#f6f7fb;color:#111}
+  header{background:#05275c;color:white;padding:14px 16px;font-size:22px;font-weight:800}
+  .wrap{padding:10px}
+  .top{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  input{font-size:16px;padding:10px;border:1px solid #bbb;border-radius:8px;width:100%;box-sizing:border-box}
+  table{width:100%;border-collapse:collapse;background:white;table-layout:fixed}
+  th,td{border:1px solid #999;text-align:center;padding:8px;min-height:48px}
+  th{background:#06265a;color:#fff;font-size:18px}
+  .team-red{background:#ffe6e6;color:#b40000;font-weight:800;font-size:22px}
+  .team-blue{background:#eaf1ff;color:#002b75;font-weight:800;font-size:22px}
+  .name-red{background:#fff0f0;color:#b40000;font-weight:700}
+  .name-blue{background:#eef4ff;color:#002b75;font-weight:700}
+  .cell{height:90px;font-size:34px;white-space:pre-line}
+  .selected{outline:4px solid #ffb300;outline-offset:-4px}
+  .panel{background:white;border:1px solid #ddd;border-radius:12px;margin-top:12px;padding:12px}
+  .buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{font-size:17px;font-weight:700;padding:12px;border-radius:10px;border:1px solid #aaa;background:#fff}
+  .main{background:#05275c;color:white}
+  .result{font-size:18px;font-weight:800;margin-top:8px}
+  .small{font-size:13px;color:#555}
+  .wide{grid-column:span 2}
+  .history{font-size:14px;margin-top:8px;line-height:1.7}
+</style>
+</head>
+<body>
+<header>⚔️ 剣道 団体戦スコア</header>
+<div class="wrap">
+  <div class="top">
+    <input id="redTeam" value="館山中" oninput="render()">
+    <input id="blueTeam" value="幕張本郷" oninput="render()">
+  </div>
+  <table id="scoreTable">
+    <tr><th>団体名</th><th>先鋒</th><th>次鋒</th><th>中堅</th><th>副将</th><th>大将</th><th>勝点</th></tr>
+    <tr>
+      <td class="team-red" rowspan="2" id="rt"></td>
+      <td class="name-red" contenteditable>齊藤</td><td class="name-red" contenteditable>小谷</td><td class="name-red" contenteditable>加藤</td><td class="name-red" contenteditable>大川</td><td class="name-red" contenteditable>小割</td>
+      <td rowspan="2" id="redScore" class="team-red"></td>
+    </tr>
+    <tr>
+      <td class="cell" onclick="selectCell(0)"></td><td class="cell" onclick="selectCell(1)"></td><td class="cell" onclick="selectCell(2)"></td><td class="cell" onclick="selectCell(3)"></td><td class="cell" onclick="selectCell(4)"></td>
+    </tr>
+    <tr>
+      <td class="team-blue" rowspan="2" id="bt"></td>
+      <td class="cell" onclick="selectCell(5)"></td><td class="cell" onclick="selectCell(6)"></td><td class="cell" onclick="selectCell(7)"></td><td class="cell" onclick="selectCell(8)"></td><td class="cell" onclick="selectCell(9)"></td>
+      <td rowspan="2" id="blueScore" class="team-blue"></td>
+    </tr>
+    <tr>
+      <td class="name-blue" contenteditable>河合</td><td class="name-blue" contenteditable></td><td class="name-blue" contenteditable>金城</td><td class="name-blue" contenteditable>津茂谷</td><td class="name-blue" contenteditable>吉田</td>
+    </tr>
+  </table>
+
+  <div class="panel">
+    <div class="small">入力したいマスをタップしてからボタンを押す</div>
+    <div class="buttons">
+      <button onclick="add('○')">○ 一本勝ち</button>
+      <button onclick="add('◯')">◯</button>
+      <button onclick="add('メ')">メ</button>
+      <button onclick="add('コ')">コ</button>
+      <button onclick="add('ド')">ド</button>
+      <button onclick="add('ツ')">ツ</button>
+      <button onclick="add('反')">反</button>
+      <button onclick="add('▲')">▲ 延長</button>
+      <button class="wide" onclick="clearCell()">選択マスを消す</button>
+      <button class="wide" onclick="resetAll()">リセット</button>
+      <button class="main wide" onclick="saveHistory()">試合を保存</button>
+      <button class="main wide" onclick="downloadCSV()">CSV保存</button>
+    </div>
+    <div class="result" id="winner"></div>
+  </div>
+
+  <div class="panel">
+    <b>保存した試合履歴</b>
+    <div class="history" id="history"></div>
+    <button onclick="clearHistory()">履歴を全部消す</button>
+  </div>
+</div>
+<script>
+let selected = 0;
+let data = Array.from({length:10},()=>[]);
+const waza = ['メ','コ','ド','ツ','反','○','◯'];
+
+function selectCell(i){selected=i; render();}
+function add(x){data[selected].push(x); render();}
+function clearCell(){data[selected]=[]; render();}
+function countSide(start){
+  let wins=0, ippon=0;
+  for(let i=start;i<start+5;i++){
+    let c=data[i].filter(x=>waza.includes(x)).length;
+    ippon += c;
+    let opp=data[i<5?i+5:i-5].filter(x=>waza.includes(x)).length;
+    if(c>opp) wins++;
+  }
+  return {wins, ippon};
+}
+function currentResult(){
+  let r=countSide(0), b=countSide(5);
+  let red=document.getElementById('redTeam').value;
+  let blue=document.getElementById('blueTeam').value;
+  let winner = r.wins>b.wins || (r.wins===b.wins && r.ippon>b.ippon) ? red :
+               b.wins>r.wins || (r.wins===b.wins && b.ippon>r.ippon) ? blue : '引き分け';
+  return {date:new Date().toLocaleString(), red, blue, redWins:r.wins, redIppon:r.ippon, blueWins:b.wins, blueIppon:b.ippon, winner, scores:data.map(a=>a.join(' '))};
+}
+function render(){
+  document.getElementById('rt').textContent=document.getElementById('redTeam').value;
+  document.getElementById('bt').textContent=document.getElementById('blueTeam').value;
+  document.querySelectorAll('.cell').forEach((td,i)=>{
+    td.textContent=data[i].join(' ');
+    td.classList.toggle('selected',i===selected);
+    td.style.color = i<5 ? '#b40000' : '#002b75';
+  });
+  let res=currentResult();
+  document.getElementById('redScore').textContent=`${res.redIppon}\n/\n${res.redWins}`;
+  document.getElementById('blueScore').textContent=`${res.blueIppon}\n/\n${res.blueWins}`;
+  document.getElementById('winner').textContent='現在の結果：'+res.winner;
+  localStorage.setItem('kendoCurrent', JSON.stringify(data));
+  showHistory();
+}
+function resetAll(){ if(confirm('今の入力を全部消しますか？')){data=Array.from({length:10},()=>[]); render();}}
+function getHistory(){try{return JSON.parse(localStorage.getItem('kendoHistory')||'[]')}catch(e){return []}}
+function saveHistory(){
+  const h=getHistory(); h.unshift(currentResult());
+  localStorage.setItem('kendoHistory', JSON.stringify(h));
+  alert('保存しました');
+  showHistory();
+}
+function showHistory(){
+  const h=getHistory();
+  document.getElementById('history').innerHTML = h.length ? h.map((x,i)=>`${i+1}. ${x.date}<br>${x.red} ${x.redWins}勝${x.redIppon}本 ／ ${x.blue} ${x.blueWins}勝${x.blueIppon}本 → ${x.winner}`).join('<hr>') : 'まだ保存はありません';
+}
+function clearHistory(){if(confirm('保存した履歴を全部消しますか？')){localStorage.removeItem('kendoHistory');showHistory();}}
+function downloadCSV(){
+  const h=getHistory();
+  if(!h.length){alert('保存した試合がありません');return;}
+  const rows=[['日時','赤団体','白団体','赤勝者数','赤本数','白勝者数','白本数','勝者','先鋒赤','次鋒赤','中堅赤','副将赤','大将赤','先鋒白','次鋒白','中堅白','副将白','大将白']];
+  h.forEach(x=>rows.push([x.date,x.red,x.blue,x.redWins,x.redIppon,x.blueWins,x.blueIppon,x.winner,...x.scores]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+  const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='kendo-score-history.csv'; a.click();
+}
+try{ const old=JSON.parse(localStorage.getItem('kendoCurrent')); if(old) data=old; }catch(e){}
+render();
+</script>
+</body>
+</html>
