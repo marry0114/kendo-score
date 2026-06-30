@@ -1,1 +1,9 @@
-
+{
+  "name": "剣道団体戦スコア",
+  "short_name": "剣道スコア",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#05275c",
+  "icons": []
+}
